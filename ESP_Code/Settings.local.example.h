@@ -9,6 +9,9 @@ extern char *RIG_IDENTIFIER = "Auto";
 extern const char SSID[] = "your_wifi_name";
 extern const char PASSWORD[] = "your_wifi_password";
 
+// Optional: report the physical board accurately in device management.
+// #define DEVICE_MANAGER_BOARD "ESP-12F"
+
 // Optional mTLS device-management setup. Keep real certificate values only in
 // Settings.local.h, never in Git. Define DEVICE_MANAGER_URL and these values:
 // #define DEVICE_MANAGER_TLS

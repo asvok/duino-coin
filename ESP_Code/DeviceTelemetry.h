@@ -2,10 +2,20 @@
 #define DEVICE_TELEMETRY_H
 
 // Define DEVICE_MANAGER_URL only in the ignored Settings.local.h to opt in.
-#if defined(ESP8266) && defined(DEVICE_MANAGER_URL)
+#if defined(DEVICE_MANAGER_URL)
+#ifndef DEVICE_MANAGER_BOARD
+    #if defined(ESP8266)
+        #define DEVICE_MANAGER_BOARD "ESP8266"
+    #else
+        #define DEVICE_MANAGER_BOARD "ESP32"
+    #endif
+#endif
 #if defined(DEVICE_MANAGER_TLS)
     #include <time.h>
-    #include <WiFiClientSecureBearSSL.h>
+
+    #if defined(ESP8266)
+        #include <WiFiClientSecureBearSSL.h>
+    #endif
 
     #ifndef DEVICE_MANAGER_SERVER_CA
         #error "DEVICE_MANAGER_SERVER_CA is required when DEVICE_MANAGER_TLS is enabled"
@@ -44,6 +54,7 @@ void sendDeviceHeartbeat() {
     if (!deviceManagerTimeReady()) {
         return;
     }
+    #if defined(ESP8266)
     BearSSL::WiFiClientSecure telemetry_client;
     BearSSL::X509List server_ca(DEVICE_MANAGER_SERVER_CA);
     BearSSL::X509List client_cert(DEVICE_MANAGER_CLIENT_CERT);
@@ -52,6 +63,12 @@ void sendDeviceHeartbeat() {
     telemetry_client.setClientECCert(&client_cert, &client_key,
                                      BR_KEYTYPE_KEYX | BR_KEYTYPE_SIGN, BR_KEYTYPE_EC);
     telemetry_client.setBufferSizes(512, 512);
+    #else
+    WiFiClientSecure telemetry_client;
+    telemetry_client.setCACert(DEVICE_MANAGER_SERVER_CA);
+    telemetry_client.setCertificate(DEVICE_MANAGER_CLIENT_CERT);
+    telemetry_client.setPrivateKey(DEVICE_MANAGER_CLIENT_KEY);
+    #endif
 #else
     WiFiClient telemetry_client;
 #endif
@@ -62,11 +79,15 @@ void sendDeviceHeartbeat() {
     }
 
     StaticJsonDocument<384> payload;
-    char device_id[15];
+    char device_id[24];
+    #if defined(ESP8266)
     snprintf(device_id, sizeof(device_id), "esp8266:%06X", ESP.getChipId());
+    #else
+    snprintf(device_id, sizeof(device_id), "esp32:%012llX", ESP.getEfuseMac());
+    #endif
     payload["device_id"] = device_id;
     payload["device_type"] = "duco-miner";
-    payload["board"] = "ESP-12F";
+    payload["board"] = DEVICE_MANAGER_BOARD;
     payload["firmware"] = SOFTWARE_VERSION;
     payload["capabilities"].add("mining");
     payload["uptime_s"] = now / 1000UL;
