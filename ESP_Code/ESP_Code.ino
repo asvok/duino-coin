@@ -50,6 +50,7 @@
 
 #include "MiningJob.h"
 #include "Settings.h"
+#include "DeviceTelemetry.h"
 
 #ifdef USE_LAN
   #include <ETH.h>
@@ -803,6 +804,7 @@ void single_core_loop() {
     #endif
 
     VerifyWifi();
+    sendDeviceHeartbeat();
     ArduinoOTA.handle();
     #if defined(WEB_DASHBOARD) 
         server.handleClient();
