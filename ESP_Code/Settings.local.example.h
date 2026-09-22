@@ -17,7 +17,10 @@ extern const char PASSWORD[] = "your_wifi_password";
 // #define DEVICE_MANAGER_URL "https://stb-lab.home:8088/v1/heartbeat"
 // #define DEVICE_MANAGER_HTTPS
 // #define DEVICE_MANAGER_TOKEN "unique token issued for this device"
-// #define DEVICE_MANAGER_SERVER_CA R"EOF(-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n)EOF"
+// #define DEVICE_MANAGER_SERVER_CA \
+//   "-----BEGIN CERTIFICATE-----\\n" \
+//   "...one PEM line at a time...\\n" \
+//   "-----END CERTIFICATE-----\\n"
 //
 // Optional mTLS adds a client certificate and private key to HTTPS.
 // #define DEVICE_MANAGER_TLS
