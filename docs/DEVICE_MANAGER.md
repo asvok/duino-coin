@@ -14,6 +14,22 @@ Use the LAN address of `stb-lab`; keep the API port inside a trusted network. Co
 
 Remove the definition to disable telemetry. This pilot has no remote configuration or OTA control. The hardware ID remains stable for the same ESP chip, while a friendly name can change independently.
 
-## HTTPS/mTLS migration
+## HTTPS server-only + token
 
-After a device certificate is issued by `esp-device-manager`, add `DEVICE_MANAGER_TLS`, the server CA, client certificate, and client key to the ignored `Settings.local.h`. Keep PEM values as raw string macros shown in `Settings.local.example.h`. Use an `https://stb-lab.home:8088/v1/heartbeat` URL. The device waits for NTP time before sending HTTPS telemetry, because it validates certificate dates. Mining continues if NTP or the registry is unavailable.
+The recommended secure mode uses the server certificate and one token unique to each device. Issue the token locally on `stb-lab`, copy it directly into this ignored file, and never copy it to Git or chat:
+
+```cpp
+#define DEVICE_MANAGER_URL "https://stb-lab.home:8088/v1/heartbeat"
+#define DEVICE_MANAGER_HTTPS
+#define DEVICE_MANAGER_TOKEN "token-issued-for-this-device-only"
+#define DEVICE_MANAGER_SERVER_CA R"EOF(-----BEGIN CERTIFICATE-----
+...contents of ca.crt...
+-----END CERTIFICATE-----
+)EOF"
+```
+
+The device waits for NTP time before sending HTTPS telemetry, because it validates certificate dates. Mining continues if NTP or the registry is unavailable. `DEVICE_MANAGER_TOKEN` is sent only in the `X-Device-Token` HTTPS header and never appears in the heartbeat JSON.
+
+## mTLS optional
+
+For a later mTLS rollout, add `DEVICE_MANAGER_TLS`, `DEVICE_MANAGER_CLIENT_CERT`, and `DEVICE_MANAGER_CLIENT_KEY` alongside the HTTPS settings. mTLS requires a client certificate for every HTTPS connection and is not needed for the recommended server-only HTTPS plus token mode.

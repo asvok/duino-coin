@@ -12,10 +12,15 @@ extern const char PASSWORD[] = "your_wifi_password";
 // Optional: report the physical board accurately in device management.
 // #define DEVICE_MANAGER_BOARD "ESP-12F"
 
-// Optional mTLS device-management setup. Keep real certificate values only in
-// Settings.local.h, never in Git. Define DEVICE_MANAGER_URL and these values:
-// #define DEVICE_MANAGER_TLS
+// Optional HTTPS device-management setup. Keep the real token and certificate
+// value only in Settings.local.h, never in Git.
+// #define DEVICE_MANAGER_URL "https://stb-lab.home:8088/v1/heartbeat"
+// #define DEVICE_MANAGER_HTTPS
+// #define DEVICE_MANAGER_TOKEN "unique token issued for this device"
 // #define DEVICE_MANAGER_SERVER_CA R"EOF(-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n)EOF"
+//
+// Optional mTLS adds a client certificate and private key to HTTPS.
+// #define DEVICE_MANAGER_TLS
 // #define DEVICE_MANAGER_CLIENT_CERT R"EOF(-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----\n)EOF"
 // #define DEVICE_MANAGER_CLIENT_KEY R"EOF(-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n)EOF"
 

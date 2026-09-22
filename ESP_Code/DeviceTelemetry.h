@@ -10,7 +10,7 @@
         #define DEVICE_MANAGER_BOARD "ESP32"
     #endif
 #endif
-#if defined(DEVICE_MANAGER_TLS)
+#if defined(DEVICE_MANAGER_TLS) || defined(DEVICE_MANAGER_HTTPS)
     #include <time.h>
 
     #if defined(ESP8266)
@@ -18,13 +18,15 @@
     #endif
 
     #ifndef DEVICE_MANAGER_SERVER_CA
-        #error "DEVICE_MANAGER_SERVER_CA is required when DEVICE_MANAGER_TLS is enabled"
+        #error "DEVICE_MANAGER_SERVER_CA is required when HTTPS telemetry is enabled"
     #endif
+    #if defined(DEVICE_MANAGER_TLS)
     #ifndef DEVICE_MANAGER_CLIENT_CERT
         #error "DEVICE_MANAGER_CLIENT_CERT is required when DEVICE_MANAGER_TLS is enabled"
     #endif
     #ifndef DEVICE_MANAGER_CLIENT_KEY
         #error "DEVICE_MANAGER_CLIENT_KEY is required when DEVICE_MANAGER_TLS is enabled"
+    #endif
     #endif
 
 bool deviceManagerTimeReady() {
@@ -50,24 +52,28 @@ void sendDeviceHeartbeat() {
     }
     last_attempt = now ? now : 1;
 
-#if defined(DEVICE_MANAGER_TLS)
+#if defined(DEVICE_MANAGER_TLS) || defined(DEVICE_MANAGER_HTTPS)
     if (!deviceManagerTimeReady()) {
         return;
     }
     #if defined(ESP8266)
     BearSSL::WiFiClientSecure telemetry_client;
     BearSSL::X509List server_ca(DEVICE_MANAGER_SERVER_CA);
+    telemetry_client.setTrustAnchors(&server_ca);
+    #if defined(DEVICE_MANAGER_TLS)
     BearSSL::X509List client_cert(DEVICE_MANAGER_CLIENT_CERT);
     BearSSL::PrivateKey client_key(DEVICE_MANAGER_CLIENT_KEY);
-    telemetry_client.setTrustAnchors(&server_ca);
     telemetry_client.setClientECCert(&client_cert, &client_key,
                                      BR_KEYTYPE_KEYX | BR_KEYTYPE_SIGN, BR_KEYTYPE_EC);
+    #endif
     telemetry_client.setBufferSizes(512, 512);
     #else
     WiFiClientSecure telemetry_client;
     telemetry_client.setCACert(DEVICE_MANAGER_SERVER_CA);
+    #if defined(DEVICE_MANAGER_TLS)
     telemetry_client.setCertificate(DEVICE_MANAGER_CLIENT_CERT);
     telemetry_client.setPrivateKey(DEVICE_MANAGER_CLIENT_KEY);
+    #endif
     #endif
 #else
     WiFiClient telemetry_client;
@@ -101,6 +107,9 @@ void sendDeviceHeartbeat() {
     String body;
     serializeJson(payload, body);
     telemetry_http.addHeader("Content-Type", "application/json");
+    #if defined(DEVICE_MANAGER_TOKEN)
+    telemetry_http.addHeader("X-Device-Token", DEVICE_MANAGER_TOKEN);
+    #endif
     telemetry_http.POST(body);
     telemetry_http.end();
 }
