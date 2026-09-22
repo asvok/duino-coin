@@ -3,18 +3,26 @@
 #define SETTINGS_H
 
 // ---------------------- General settings ---------------------- //
+#if !__has_include("Settings.local.h")
 // Change the part in brackets to your Duino-Coin username
-extern char *DUCO_USER = "my_cool_username";
+extern char *DUCO_USER = "your_username";
 // Change the part in brackets to your mining key (if you have set it in the wallet)
-extern char *MINER_KEY = "mySecretPass";
+extern char *MINER_KEY = "";
 // Change the part in brackets if you want to set a custom miner name
 // Use Auto to autogenerate, None for no custom identifier
-extern char *RIG_IDENTIFIER = "None";
+extern char *RIG_IDENTIFIER = "Auto";
 // Change the part in brackets to your WiFi name
-extern const char SSID[] = "SSID";
+extern const char SSID[] = "your_wifi_name";
 // Change the part in brackets to your WiFi password
-extern const char PASSWORD[] = "PASSW0RD";
+extern const char PASSWORD[] = "your_wifi_password";
 // -------------------------------------------------------------- //
+
+#endif
+
+// Private settings in Settings.local.h override the examples above.
+#if __has_include("Settings.local.h")
+#include "Settings.local.h"
+#endif
 
 // -------------------- Advanced options ------------------------ //
 // Uncomment if you want to host the dashboard page (available on ESPs IP address and mDNS)
