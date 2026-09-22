@@ -22,13 +22,13 @@ The recommended secure mode uses the server certificate and one token unique to 
 #define DEVICE_MANAGER_URL "https://stb-lab.home:8088/v1/heartbeat"
 #define DEVICE_MANAGER_HTTPS
 #define DEVICE_MANAGER_TOKEN "token-issued-for-this-device-only"
-#define DEVICE_MANAGER_SERVER_CA R"EOF(-----BEGIN CERTIFICATE-----
-...contents of ca.crt...
------END CERTIFICATE-----
-)EOF"
+#define DEVICE_MANAGER_SERVER_CA \
+  "-----BEGIN CERTIFICATE-----\n" \
+  "...one line from ca.crt...\n" \
+  "-----END CERTIFICATE-----\n"
 ```
 
-The device waits for NTP time before sending HTTPS telemetry, because it validates certificate dates. Mining continues if NTP or the registry is unavailable. `DEVICE_MANAGER_TOKEN` is sent only in the `X-Device-Token` HTTPS header and never appears in the heartbeat JSON.
+Every PEM line must be in its own quoted string and end with `\n`; each line except the last must also end with `\`. Do not use a multi-line raw string after `#define`, because the C++ preprocessor ends that macro at the first newline. The device waits for NTP time before sending HTTPS telemetry, because it validates certificate dates. Mining continues if NTP or the registry is unavailable. `DEVICE_MANAGER_TOKEN` is sent only in the `X-Device-Token` HTTPS header and never appears in the heartbeat JSON.
 
 ## mTLS optional
 
