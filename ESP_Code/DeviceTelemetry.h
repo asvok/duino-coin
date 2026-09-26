@@ -84,18 +84,15 @@ void sendDeviceHeartbeat() {
         return;
     }
 
-    StaticJsonDocument<384> payload;
-    char device_id[24];
-    #if defined(ESP8266)
-    snprintf(device_id, sizeof(device_id), "esp8266:%06X", ESP.getChipId());
-    #else
-    snprintf(device_id, sizeof(device_id), "esp32:%012llX", ESP.getEfuseMac());
-    #endif
+    StaticJsonDocument<768> payload;
+    String device_id = managedDeviceId();
     payload["device_id"] = device_id;
     payload["device_type"] = "duco-miner";
     payload["board"] = DEVICE_MANAGER_BOARD;
-    payload["firmware"] = SOFTWARE_VERSION;
+    payload["firmware"] = DEVICE_FIRMWARE_VERSION;
     payload["capabilities"].add("mining");
+    payload["capabilities"].add("managed-config");
+    payload["capabilities"].add("pull-ota");
     payload["uptime_s"] = now / 1000UL;
     payload["free_heap"] = ESP.getFreeHeap();
     payload["rssi_dbm"] = WiFi.RSSI();
@@ -103,6 +100,12 @@ void sendDeviceHeartbeat() {
     payload["accepted"] = accepted_share_count;
     payload["rejected"] = share_count >= accepted_share_count
         ? share_count - accepted_share_count : 0;
+    payload["config_version"] = managedConfigVersion();
+    payload["config_status"] = managedConfigStatus;
+    payload["ota_status"] = managedOtaStatus;
+    payload["ota_progress"] = managedOtaProgress;
+    if (managedOtaError.length()) payload["ota_error"] = managedOtaError;
+    payload["flash_size"] = ESP.getFlashChipSize();
 
     String body;
     serializeJson(payload, body);
@@ -110,7 +113,12 @@ void sendDeviceHeartbeat() {
     #if defined(DEVICE_MANAGER_TOKEN)
     telemetry_http.addHeader("X-Device-Token", DEVICE_MANAGER_TOKEN);
     #endif
-    telemetry_http.POST(body);
+    const int responseCode = telemetry_http.POST(body);
+    if (responseCode == HTTP_CODE_ACCEPTED) {
+        const String response = telemetry_http.getString();
+        managedConfirmConnection();
+        managedHandleResponse(response);
+    }
     telemetry_http.end();
 }
 #else
