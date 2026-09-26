@@ -125,6 +125,9 @@ extern const char PASSWORD[] = "your_wifi_password";
 #define BLINK_CLIENT_CONNECT 5
 
 #define SOFTWARE_VERSION "4.3"
+#ifndef DEVICE_FIRMWARE_VERSION
+  #define DEVICE_FIRMWARE_VERSION SOFTWARE_VERSION
+#endif
 extern unsigned int hashrate = 0;
 extern unsigned int hashrate_core_two = 0;
 extern unsigned int difficulty = 0;

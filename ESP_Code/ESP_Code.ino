@@ -50,6 +50,7 @@
 
 #include "MiningJob.h"
 #include "Settings.h"
+#include "ManagedDevice.h"
 #include "DeviceTelemetry.h"
 
 #ifdef USE_LAN
@@ -360,13 +361,15 @@ namespace {
 
       #else
         #if defined(SERIAL_PRINTING)
-            Serial.println("Connecting to: " + String(SSID));
+            Serial.println("Connecting to: " + String(managedWifiSsid()));
         #endif
         
-        WiFi.begin(SSID, PASSWORD);
+        WiFi.begin(managedWifiSsid(), managedWifiPassword());
+        const unsigned long wifiStarted = millis();
         while(WiFi.status() != WL_CONNECTED) {
             Serial.print(".");
             delay(100);
+            if (managedWifiPending() && millis() - wifiStarted > 30000UL) managedRollbackAndRestart();
         }
         VerifyWifi();
         
@@ -392,6 +395,7 @@ namespace {
     }
 
     void SetupOTA() {
+        #if defined(ENABLE_LOCAL_ARDUINO_OTA)
         // Prepare OTA handler
         ArduinoOTA.onStart([]()
                            { 
@@ -425,6 +429,7 @@ namespace {
 
         ArduinoOTA.setHostname(RIG_IDENTIFIER); // Give port a name
         ArduinoOTA.begin();
+        #endif
     }
 
     #if defined(WEB_DASHBOARD)
@@ -559,6 +564,7 @@ void setup() {
         Serial.println("\n\nDuino-Coin " + String(configuration->MINER_VER));
     #endif
     pinMode(LED_BUILTIN, OUTPUT);
+    managedBegin(configuration);
 
     #if defined(BLUSHYBOX)
         analogWrite(LED_BUILTIN, 255);
