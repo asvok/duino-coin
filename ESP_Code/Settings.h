@@ -24,6 +24,16 @@ extern const char PASSWORD[] = "your_wifi_password";
 #include "Settings.local.h"
 #endif
 
+// Keep the physical board identity available to both managed configuration
+// and telemetry, including private setups that define only DEVICE_MANAGER_URL.
+#ifndef DEVICE_MANAGER_BOARD
+  #if defined(ESP8266)
+    #define DEVICE_MANAGER_BOARD "ESP8266"
+  #else
+    #define DEVICE_MANAGER_BOARD "ESP32"
+  #endif
+#endif
+
 // -------------------- Advanced options ------------------------ //
 // Uncomment if you want to host the dashboard page (available on ESPs IP address and mDNS)
 // #define WEB_DASHBOARD
