@@ -9,8 +9,12 @@
 #if defined(ESP8266)
   #include <Updater.h>
   #include <bearssl/bearssl.h>
+  extern "C" {
+    #include <user_interface.h>
+  }
 #else
   #include <Update.h>
+  #include <esp_system.h>
   #include <esp_ota_ops.h>
   #include <mbedtls/md.h>
   #include <mbedtls/sha256.h>
@@ -24,7 +28,9 @@
 #endif
 
 static const uint32_t MANAGED_MAGIC = 0x4455434F;
+static const uint32_t MANAGED_IDENTITY_MAGIC = 0x44554944;
 static const size_t MANAGED_EEPROM_SIZE = 768;
+static const size_t MANAGED_IDENTITY_OFFSET = 640;
 
 struct ManagedSettings {
   uint32_t magic;
@@ -41,7 +47,15 @@ struct ManagedSettings {
   char previous_wifi_password[64];
 };
 
+struct ManagedIdentity {
+  uint32_t magic;
+  uint32_t crc;
+  uint8_t approved;
+  char secret[65];
+};
+
 static ManagedSettings managedSettings = {};
+static ManagedIdentity managedIdentity = {};
 static String managedConfigStatus = "pending";
 static String managedOtaStatus = "idle";
 static String managedOtaError = "";
@@ -72,6 +86,42 @@ uint32_t managedSettingsCrc(const ManagedSettings &settings) {
   return managedCrc(reinterpret_cast<const uint8_t *>(&copy), sizeof(copy));
 }
 
+uint32_t managedIdentityCrc(const ManagedIdentity &identity) {
+  ManagedIdentity copy = identity;
+  copy.crc = 0;
+  return managedCrc(reinterpret_cast<const uint8_t *>(&copy), sizeof(copy));
+}
+
+void managedSaveIdentity() {
+  managedIdentity.magic = MANAGED_IDENTITY_MAGIC;
+  managedIdentity.crc = managedIdentityCrc(managedIdentity);
+  EEPROM.put(MANAGED_IDENTITY_OFFSET, managedIdentity);
+  EEPROM.commit();
+}
+
+void managedGenerateIdentity() {
+  static const char alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  memset(&managedIdentity, 0, sizeof(managedIdentity));
+  for (size_t i = 0; i < 43; ++i) {
+#if defined(ESP8266)
+    managedIdentity.secret[i] = alphabet[os_random() & 63];
+#else
+    managedIdentity.secret[i] = alphabet[esp_random() & 63];
+#endif
+  }
+  managedIdentity.secret[43] = 0;
+  managedSaveIdentity();
+}
+
+const char *managedDeviceToken() {
+  if (strlen(DEVICE_MANAGER_TOKEN)) return DEVICE_MANAGER_TOKEN;
+  return managedIdentity.approved ? managedIdentity.secret : "";
+}
+
+const char *managedEnrollmentSecret() { return managedIdentity.secret; }
+bool managedEnrollmentApproved() { return managedIdentity.approved; }
+void managedApproveEnrollment() { managedIdentity.approved = 1; managedSaveIdentity(); }
+
 void managedSave() {
   managedSettings.magic = MANAGED_MAGIC;
   managedSettings.crc = managedSettingsCrc(managedSettings);
@@ -81,6 +131,12 @@ void managedSave() {
 
 void managedBegin(MiningConfig *configuration) {
   EEPROM.begin(MANAGED_EEPROM_SIZE);
+  EEPROM.get(MANAGED_IDENTITY_OFFSET, managedIdentity);
+  if (managedIdentity.magic != MANAGED_IDENTITY_MAGIC ||
+      managedIdentity.crc != managedIdentityCrc(managedIdentity) ||
+      strlen(managedIdentity.secret) != 43) {
+    managedGenerateIdentity();
+  }
   EEPROM.get(0, managedSettings);
   if (managedSettings.magic != MANAGED_MAGIC || managedSettings.crc != managedSettingsCrc(managedSettings)) {
     memset(&managedSettings, 0, sizeof(managedSettings));
@@ -103,6 +159,15 @@ const char *managedWifiPassword() {
 }
 
 bool managedWifiPending() { return managedSettings.magic == MANAGED_MAGIC && managedSettings.pending; }
+
+void managedSetWifiCredentials(const char *ssid, const char *password) {
+  if (!ssid || !ssid[0]) return;
+  strlcpy(managedSettings.ssid, ssid, sizeof(managedSettings.ssid));
+  strlcpy(managedSettings.wifi_password, password ? password : "", sizeof(managedSettings.wifi_password));
+  managedSettings.pending = 0;
+  managedSettings.rollback = 0;
+  managedSave();
+}
 
 void managedConfirmConnection() {
 #if !defined(ESP8266)
@@ -241,7 +306,7 @@ bool managedInstallFirmware(JsonObjectConst firmware) {
   http.setTimeout(10000);
   if (!http.begin(client, url)) { managedOtaStatus = "failed"; managedOtaError = "download setup failed"; return false; }
   http.addHeader("X-Device-ID", managedDeviceId());
-  http.addHeader("X-Device-Token", DEVICE_MANAGER_TOKEN);
+  http.addHeader("X-Device-Token", managedDeviceToken());
   const int code = http.GET();
   if (code != HTTP_CODE_OK || static_cast<size_t>(http.getSize()) != size || !Update.begin(size)) {
     managedOtaStatus = "failed"; managedOtaError = "firmware download rejected"; http.end(); return false;
