@@ -43,6 +43,61 @@ bool deviceManagerTimeReady() {
 }
 #endif
 
+void managedIdentifyBlink() {
+    for (uint8_t count = 0; count < 6; ++count) {
+        digitalWrite(LED_BUILTIN, LOW); delay(100);
+        digitalWrite(LED_BUILTIN, HIGH); delay(100);
+    }
+}
+
+bool sendDeviceEnrollment() {
+    if (strlen(DEVICE_MANAGER_TOKEN) || managedEnrollmentApproved()) return true;
+#if defined(DEVICE_MANAGER_TLS) || defined(DEVICE_MANAGER_HTTPS)
+    #if defined(ESP8266)
+    BearSSL::WiFiClientSecure enrollment_client;
+    BearSSL::X509List enrollment_ca(DEVICE_MANAGER_SERVER_CA);
+    enrollment_client.setTrustAnchors(&enrollment_ca);
+    #if defined(DEVICE_MANAGER_TLS)
+    BearSSL::X509List enrollment_cert(DEVICE_MANAGER_CLIENT_CERT);
+    BearSSL::PrivateKey enrollment_key(DEVICE_MANAGER_CLIENT_KEY);
+    enrollment_client.setClientECCert(&enrollment_cert, &enrollment_key,
+                                      BR_KEYTYPE_KEYX | BR_KEYTYPE_SIGN, BR_KEYTYPE_EC);
+    #endif
+    enrollment_client.setBufferSizes(512, 512);
+    #else
+    WiFiClientSecure enrollment_client;
+    enrollment_client.setCACert(DEVICE_MANAGER_SERVER_CA);
+    #if defined(DEVICE_MANAGER_TLS)
+    enrollment_client.setCertificate(DEVICE_MANAGER_CLIENT_CERT);
+    enrollment_client.setPrivateKey(DEVICE_MANAGER_CLIENT_KEY);
+    #endif
+    #endif
+#else
+    WiFiClient enrollment_client;
+#endif
+    HTTPClient enrollment_http;
+    enrollment_http.setTimeout(3000);
+    if (!enrollment_http.begin(enrollment_client, managedAbsoluteUrl("/v1/enroll"))) return false;
+    StaticJsonDocument<320> payload;
+    payload["device_id"] = managedDeviceId();
+    payload["board"] = DEVICE_MANAGER_BOARD;
+    payload["firmware"] = DEVICE_FIRMWARE_VERSION;
+    payload["secret"] = managedEnrollmentSecret();
+    String body;
+    serializeJson(payload, body);
+    enrollment_http.addHeader("Content-Type", "application/json");
+    const int code = enrollment_http.POST(body);
+    if (code == HTTP_CODE_OK) {
+        StaticJsonDocument<192> response;
+        if (!deserializeJson(response, enrollment_http.getString())) {
+            if (response["identify"] | false) managedIdentifyBlink();
+            if (String(response["status"] | "") == "approved") managedApproveEnrollment();
+        }
+    }
+    enrollment_http.end();
+    return managedEnrollmentApproved();
+}
+
 void sendDeviceHeartbeat() {
     static unsigned long last_attempt = 0;
     const unsigned long now = millis();
@@ -78,6 +133,7 @@ void sendDeviceHeartbeat() {
 #else
     WiFiClient telemetry_client;
 #endif
+    if (!sendDeviceEnrollment()) return;
     HTTPClient telemetry_http;
     telemetry_http.setTimeout(1000);
     if (!telemetry_http.begin(telemetry_client, DEVICE_MANAGER_URL)) {
@@ -93,6 +149,7 @@ void sendDeviceHeartbeat() {
     payload["capabilities"].add("mining");
     payload["capabilities"].add("managed-config");
     payload["capabilities"].add("pull-ota");
+    payload["capabilities"].add("secure-enrollment");
     payload["uptime_s"] = now / 1000UL;
     payload["free_heap"] = ESP.getFreeHeap();
     payload["rssi_dbm"] = WiFi.RSSI();
@@ -110,9 +167,7 @@ void sendDeviceHeartbeat() {
     String body;
     serializeJson(payload, body);
     telemetry_http.addHeader("Content-Type", "application/json");
-    #if defined(DEVICE_MANAGER_TOKEN)
-    telemetry_http.addHeader("X-Device-Token", DEVICE_MANAGER_TOKEN);
-    #endif
+    if (strlen(managedDeviceToken())) telemetry_http.addHeader("X-Device-Token", managedDeviceToken());
     const int responseCode = telemetry_http.POST(body);
     if (responseCode == HTTP_CODE_ACCEPTED) {
         const String response = telemetry_http.getString();

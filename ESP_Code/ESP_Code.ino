@@ -136,6 +136,10 @@
   }
 #endif
 
+#if defined(DEVICE_MANAGER_WIFI_PORTAL) && !defined(CAPTIVE_PORTAL)
+  #include <WiFiManager.h>
+#endif
+
 void RestartESP(String msg) {
   #if defined(SERIAL_PRINTING)
     Serial.println(msg);
@@ -370,6 +374,18 @@ namespace {
             Serial.print(".");
             delay(100);
             if (managedWifiPending() && millis() - wifiStarted > 30000UL) managedRollbackAndRestart();
+            #if defined(DEVICE_MANAGER_WIFI_PORTAL) && !defined(CAPTIVE_PORTAL)
+            if (!managedWifiPending() && millis() - wifiStarted > 30000UL) {
+                WiFiManager setupPortal;
+                setupPortal.setConfigPortalTimeout(300);
+                const String setupName = "DuinoCoin-" + managedDeviceId().substring(managedDeviceId().indexOf(':') + 1);
+                if (setupPortal.startConfigPortal(setupName.c_str())) {
+                    managedSetWifiCredentials(setupPortal.getWiFiSSID().c_str(), setupPortal.getWiFiPass().c_str());
+                } else {
+                    ESP.restart();
+                }
+            }
+            #endif
         }
         VerifyWifi();
         

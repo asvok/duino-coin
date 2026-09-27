@@ -24,6 +24,12 @@ extern const char PASSWORD[] = "your_wifi_password";
 #include "Settings.local.h"
 #endif
 
+// Managed builds fall back to a temporary setup access point after 30 seconds.
+// Define DEVICE_MANAGER_DISABLE_WIFI_PORTAL to keep compile-time Wi-Fi only.
+#if defined(DEVICE_MANAGER_URL) && !defined(DEVICE_MANAGER_DISABLE_WIFI_PORTAL)
+  #define DEVICE_MANAGER_WIFI_PORTAL
+#endif
+
 // Keep the physical board identity available to both managed configuration
 // and telemetry, including private setups that define only DEVICE_MANAGER_URL.
 #ifndef DEVICE_MANAGER_BOARD

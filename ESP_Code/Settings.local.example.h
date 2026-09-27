@@ -16,7 +16,10 @@ extern const char PASSWORD[] = "your_wifi_password";
 // value only in Settings.local.h, never in Git.
 // #define DEVICE_MANAGER_URL "https://stb-lab.home:8088/v1/heartbeat"
 // #define DEVICE_MANAGER_HTTPS
-// #define DEVICE_MANAGER_TOKEN "unique token issued for this device"
+// Normally leave DEVICE_MANAGER_TOKEN undefined: the device generates a private
+// identity and waits for approval in ESP Device Manager > Add device. Define a
+// token only for legacy/manual provisioning.
+// #define DEVICE_MANAGER_TOKEN "legacy token issued for this device"
 // Required for signed pull OTA. Use the same 32+ character value as
 // DEVICE_FIRMWARE_SIGNING_KEY on ESP Device Manager.
 // #define DEVICE_MANAGER_FIRMWARE_KEY "replace-with-a-long-random-signing-key"
