@@ -22,6 +22,8 @@ extern const char PASSWORD[] = "your_wifi_password";
 // #define DEVICE_MANAGER_TOKEN "legacy token issued for this device"
 // Required for signed pull OTA. Use the same 32+ character value as
 // DEVICE_FIRMWARE_SIGNING_KEY on ESP Device Manager.
+// ESP32 keeps a newly installed image pending until a stable authenticated
+// heartbeat after 60 seconds. ESP8266 rollback requires managed OTA connectivity.
 // #define DEVICE_MANAGER_FIRMWARE_KEY "replace-with-a-long-random-signing-key"
 // Set this to the exact version registered with the uploaded .bin artifact.
 // #define DEVICE_FIRMWARE_VERSION "4.3-managed.1"

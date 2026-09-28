@@ -131,6 +131,14 @@ void managedSave() {
 
 void managedBegin(MiningConfig *configuration) {
   EEPROM.begin(MANAGED_EEPROM_SIZE);
+#if !defined(ESP8266)
+  const esp_partition_t *runningPartition = esp_ota_get_running_partition();
+  esp_ota_img_states_t imageState;
+  if (runningPartition && esp_ota_get_state_partition(runningPartition, &imageState) == ESP_OK &&
+      imageState == ESP_OTA_IMG_PENDING_VERIFY) {
+    managedOtaStatus = "validating";
+  }
+#endif
   EEPROM.get(MANAGED_IDENTITY_OFFSET, managedIdentity);
   if (managedIdentity.magic != MANAGED_IDENTITY_MAGIC ||
       managedIdentity.crc != managedIdentityCrc(managedIdentity) ||
@@ -171,7 +179,11 @@ void managedSetWifiCredentials(const char *ssid, const char *password) {
 
 void managedConfirmConnection() {
 #if !defined(ESP8266)
-  esp_ota_mark_app_valid_cancel_rollback();
+  if (managedOtaStatus == "validating" && millis() >= 60000UL &&
+      esp_ota_mark_app_valid_cancel_rollback() == ESP_OK) {
+    managedOtaStatus = "applied";
+    managedOtaProgress = 100;
+  }
 #endif
   if (managedWifiPending()) {
     managedSettings.pending = 0;
